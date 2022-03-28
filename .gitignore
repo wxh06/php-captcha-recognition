@@ -186,3 +186,4 @@ cython_debug/
 
 
 data/
+saved_model/
