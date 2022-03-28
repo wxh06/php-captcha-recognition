@@ -14,7 +14,7 @@ function create_uuid($prefix="") {
 
 for ($i = 1; $i <= 10; ++$i) {
     $builder = new CaptchaBuilder;
-    $dir = 'data1/';
+    $dir = 'data/';
     $builder->build(90, 35);
     $builder->save($dir . $builder->getPhrase() . '_' . create_uuid() . '.png');
 }
