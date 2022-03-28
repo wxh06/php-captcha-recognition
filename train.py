@@ -34,7 +34,7 @@ def parse_filepath(filepath):
 
 
 # create a pandas data frame of images, age, gender and race
-files = glob.glob(os.path.join(DATA_DIR, "*.png"))
+files = glob.glob(os.path.join(DATA_DIR, "*.jpg"))
 attributes = list(map(parse_filepath, files))
 
 df = pd.DataFrame(attributes)
