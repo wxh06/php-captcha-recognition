@@ -41,7 +41,7 @@ df = pd.DataFrame(attributes)
 df["file"] = files
 df.columns = ["label", "file"]
 df = df.dropna()
-df.head()
+print(df.head())
 
 
 p = np.random.permutation(len(df))
