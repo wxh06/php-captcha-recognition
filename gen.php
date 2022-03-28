@@ -1,6 +1,7 @@
 <?php
 include "vendor/autoload.php";
 use Gregwar\Captcha\CaptchaBuilder;
+use Gregwar\Captcha\PhraseBuilder;
 
 function create_uuid($prefix="") {
     $chars = md5(uniqid(mt_rand(), true));
@@ -13,7 +14,7 @@ function create_uuid($prefix="") {
 }
 
 for ($i = 1; $i <= 10; ++$i) {
-    $builder = new CaptchaBuilder;
+    $builder = new CaptchaBuilder(null, new PhraseBuilder(4));
     $dir = 'data/';
     $builder->build(90, 35);
     $builder->save($dir . $builder->getPhrase() . '_' . create_uuid() . '.png');
