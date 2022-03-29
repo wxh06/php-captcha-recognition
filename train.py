@@ -45,12 +45,12 @@ print(df.head())
 
 
 p = np.random.permutation(len(df))
-train_up_to = int(len(df) * 0.7)
+train_up_to = int(len(df) * 0.9)
 train_idx = p[:train_up_to]
 test_idx = p[train_up_to:]
 
 # split train_idx further into training and validation set
-train_up_to = int(train_up_to * 0.7)
+train_up_to = int(train_up_to * 0.9)
 train_idx, valid_idx = train_idx[:train_up_to], train_idx[train_up_to:]
 
 print(
