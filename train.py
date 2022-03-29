@@ -6,6 +6,7 @@ https://github.com/JackonYang/captcha-tensorflow/blob/master/captcha-solver-tf2-
 
 import glob
 import os
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np  # linear algebra
@@ -17,6 +18,7 @@ from PIL import Image
 
 
 DATA_DIR = "data"
+LOG_DIR = "logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 H, W, C = 35, 90, 3  # height, width, 3 (RGB channels)
 N_LABELS = 128
 D = 4  # num_per_image
@@ -120,6 +122,9 @@ history = model.fit(
     epochs=3,
     validation_data=valid_gen,
     validation_steps=len(valid_idx) // valid_batch_size,
+    callbacks=[
+        tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, histogram_freq=1)
+    ],
 )
 
 
