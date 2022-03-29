@@ -213,7 +213,7 @@ function build_phrase() {
 }
 $builder = new CaptchaBuilder;
 for ($i = 1; $i <= 10; ++$i) {
-    $dir = 'data1/';
+    $dir = 'data/';
     $builder->phrase=build_phrase();
     $builder->build(90, 35, $dir . $builder->phrase . '_' . create_uuid() . '.png');
 }
