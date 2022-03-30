@@ -5,6 +5,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    url_for,
 )
 
 from predict import predict as _predict
@@ -31,13 +32,13 @@ def predict():
     # check if the post request has the file part
     if "captcha" not in request.files:
         flash("No file part")
-        return redirect(request.url)
+        return redirect(url_for("upload"))
     file = request.files["captcha"]
     # If the user does not select a file, the browser submits an
     # empty file without a filename.
     if file.filename == "":
         flash("No selected file")
-        return redirect(request.url)
+        return redirect(url_for("upload"))
     if file and allowed_file(file.filename):
         response = make_response(_predict(file.stream), 200)
         response.mimetype = "text/plain"
