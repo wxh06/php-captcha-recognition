@@ -1,4 +1,12 @@
-from flask import Flask, flash, redirect, render_template, request
+from flask import (
+    Flask,
+    flash,
+    make_response,
+    redirect,
+    render_template,
+    request,
+)
+
 from predict import predict as _predict
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg"}
@@ -31,5 +39,7 @@ def predict():
         flash("No selected file")
         return redirect(request.url)
     if file and allowed_file(file.filename):
-        return _predict(file.stream)
+        response = make_response(_predict(file.stream), 200)
+        response.mimetype = "text/plain"
+        return response
     return ("", 400)
