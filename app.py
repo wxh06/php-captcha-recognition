@@ -31,6 +31,7 @@ def upload():
 
 def respond_prediction(image):
     response = make_response(_predict(image), 200)
+    response.headers["Access-Control-Allow-Origin"] = "*"
     response.mimetype = "text/plain"
     return response
 
