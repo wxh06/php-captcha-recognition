@@ -1,3 +1,5 @@
+from urllib.request import urlopen
+
 from flask import (
     Flask,
     flash,
@@ -27,13 +29,21 @@ def upload():
     return render_template("upload.html")
 
 
+def respond_prediction(image):
+    response = make_response(_predict(image), 200)
+    response.mimetype = "text/plain"
+    return response
+
+
 @app.route("/predict/", methods=["POST"])
 def predict():
     # handle binary data
-    if request.mimetype != "multipart/form-data":
-        response = make_response(_predict(request.stream), 200)
-        response.mimetype = "text/plain"
-        return response
+    if request.mimetype.startswith("image/"):
+        return respond_prediction(request.stream)
+    if request.data:
+        return respond_prediction(urlopen(request.get_data(as_text=True)))
+    if "url" in request.form:
+        return respond_prediction(urlopen(request.form["url"]))
     # check if the post request has the file part
     if "captcha" not in request.files:
         flash("No file part")
@@ -45,9 +55,7 @@ def predict():
         flash("No selected file")
         return redirect(url_for("upload"))
     if file and allowed_file(file.filename):
-        response = make_response(_predict(file.stream), 200)
-        response.mimetype = "text/plain"
-        return response
+        return respond_prediction(file.stream)
     return ("", 400)
 
 
