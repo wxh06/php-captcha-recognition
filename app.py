@@ -29,6 +29,11 @@ def upload():
 
 @app.route("/predict/", methods=["POST"])
 def predict():
+    # handle binary data
+    if request.mimetype != "multipart/form-data":
+        response = make_response(_predict(request.stream), 200)
+        response.mimetype = "text/plain"
+        return response
     # check if the post request has the file part
     if "captcha" not in request.files:
         flash("No file part")
