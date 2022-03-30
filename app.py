@@ -43,3 +43,7 @@ def predict():
         response.mimetype = "text/plain"
         return response
     return ("", 400)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
