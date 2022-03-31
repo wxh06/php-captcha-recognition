@@ -1,4 +1,6 @@
 <?php
+error_reporting(0);
+
 function drawLine($image, $width, $height, $tcol = null) {
 	$red = mt_rand(100, 255);
 	$green = mt_rand(100, 255);
@@ -61,7 +63,7 @@ function writePhrase($image, $phrase, $font, $width, $height) {
 /**
      * Generate the image
      */
-function build($width = 150, $height = 40, $phrase) {
+function build($width, $height, $phrase) {
 	$font = __DIR__ . '/Font/captcha'.mt_rand(0, 5).'.ttf';
 	// if background images list is not set, use a color fill as a background
 	$image = imagecreatetruecolor($width, $height);
