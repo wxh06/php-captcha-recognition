@@ -49,8 +49,11 @@ def generate(num, workers, batch_size):
 
     df = pd.DataFrame([j for i in ims for j in i], columns=["label", "image"])
     offset = max(
-        int((re.match(r"data-([0-9]+)\.pkl", f) or [None, -1])[1])
-        for f in listdir(DATA_DIR)
+        [
+            int((re.match(r"data-([0-9]+)\.pkl", f) or [None, -1])[1])
+            for f in listdir(DATA_DIR)
+        ]
+        or [-1]
     )
     for i in range(ceil(len(df) / batch_size)):
         df.iloc[i * batch_size : (i + 1) * batch_size].to_pickle(
@@ -59,4 +62,4 @@ def generate(num, workers, batch_size):
 
 
 if __name__ == "__main__":
-    generate(*argv)
+    generate(*map(int, argv[1:]))
