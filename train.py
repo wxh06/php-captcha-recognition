@@ -52,7 +52,10 @@ def get_data_generator(files, indices, repeat=1):
             images = np.array([a for a in df["image"]]) / 255.0
             labels = np.array(
                 [
-                    [np.array(to_categorical(ord(i), N_LABELS)) for i in lable]
+                    [
+                        np.array(to_categorical(ord(i), N_LABELS))
+                        for i in lable.lower()
+                    ]
                     for lable in df["label"]
                 ]
             )
