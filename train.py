@@ -4,8 +4,8 @@ Copyright (c) 2017 Jackon Yang
 https://github.com/JackonYang/captcha-tensorflow/blob/master/captcha-solver-tf2-4digits-AlexNet-98.8.ipynb
 """
 
-import glob
-import os
+from glob import glob
+from os import path
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -14,40 +14,23 @@ import pandas as pd  # data processing, CSV file I/O (e.g. pd.read_csv)
 import tensorflow as tf
 from keras import layers, models
 from keras.utils.np_utils import to_categorical
-from PIL import Image
+
+# from PIL import Image
 
 
 DATA_DIR = "data"
 LOG_DIR = "logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 H, W, C = 35, 90, 3  # height, width, 3 (RGB channels)
 N_LABELS = 128
-D = 4  # num_per_image
+D = 4  # num_of_chars_per_image
 
 
-def parse_filepath(filepath):
-    try:
-        path, filename = os.path.split(filepath)
-        filename, ext = os.path.splitext(filename)
-        label, _ = filename.split("_")
-        return label
-    except Exception as e:
-        print("error to parse %s. %s" % (filepath, e))
-        return None, None
+# create a pandas data frame of images and labels
+files = glob(path.join(DATA_DIR, "data-*.pkl"))
 
 
-# create a pandas data frame of images, age, gender and race
-files = glob.glob(os.path.join(DATA_DIR, "*.jpg"))
-attributes = list(map(parse_filepath, files))
-
-df = pd.DataFrame(attributes)
-df["file"] = files
-df.columns = ["label", "file"]
-df = df.dropna()
-print(df.head())
-
-
-p = np.random.permutation(len(df))
-train_up_to = int(len(df) * 0.9)
+p = np.random.permutation(len(files))
+train_up_to = int(len(files) * 0.9)
 train_idx = p[:train_up_to]
 test_idx = p[train_up_to:]
 
@@ -61,27 +44,19 @@ print(
 )
 
 
-def get_data_generator(df, indices, for_training, batch_size=16):
-    images, labels = [], []
-    while True:
+def get_data_generator(files, indices, repeat=1):
+    for _ in range(repeat):
         for i in indices:
-            r = df.iloc[i]
-            file, label = r["file"], r["label"]
-            im = Image.open(file)
-            #             im = im.resize((H, W))
-            im = np.array(im) / 255.0
-            images.append(np.array(im))
-            labels.append(
-                np.array(
-                    [np.array(to_categorical(ord(i), N_LABELS)) for i in label]
-                )
+            df = pd.read_pickle(files[i])
+            images = np.array([a for a in df["image"]]) / 255.0
+            labels = np.array(
+                [
+                    [np.array(to_categorical(ord(i), N_LABELS)) for i in lable]
+                    for lable in df["label"]
+                ]
             )
-            if len(images) >= batch_size:
-                #                 print(np.array(images), np.array(labels))
-                yield np.array(images), np.array(labels)
-                images, labels = [], []
-        if not for_training:
-            break
+            # print(images.shape, labels.shape)
+            yield images, labels
 
 
 input_layer = tf.keras.Input(shape=(H, W, C))
@@ -107,21 +82,14 @@ model.compile(
 model.summary()
 
 
-batch_size = 64
-valid_batch_size = 64
-train_gen = get_data_generator(
-    df, train_idx, for_training=True, batch_size=batch_size
-)
-valid_gen = get_data_generator(
-    df, valid_idx, for_training=True, batch_size=valid_batch_size
-)
+epochs = 4
 
 history = model.fit(
-    train_gen,
-    steps_per_epoch=len(train_idx) // batch_size,
-    epochs=3,
-    validation_data=valid_gen,
-    validation_steps=len(valid_idx) // valid_batch_size,
+    get_data_generator(files, train_idx, epochs),
+    steps_per_epoch=len(train_idx),
+    epochs=epochs,
+    validation_data=get_data_generator(files, valid_idx, epochs),
+    validation_steps=len(valid_idx),
     callbacks=[
         tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, histogram_freq=1)
     ],
@@ -147,12 +115,12 @@ plt.show()
 
 
 # evaluate loss and accuracy in test dataset
-test_gen = get_data_generator(df, test_idx, for_training=False, batch_size=128)
+test_gen = get_data_generator(files, test_idx)
 print(
     dict(
         zip(
             model.metrics_names,
-            model.evaluate(test_gen, steps=len(test_idx) // 128),
+            model.evaluate(test_gen, steps=len(test_idx)),
         )
     )
 )
