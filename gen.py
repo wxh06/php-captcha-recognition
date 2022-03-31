@@ -4,6 +4,7 @@ import threading
 from io import BytesIO
 from math import ceil
 from os import listdir, path
+from sys import argv
 
 import pandas as pd
 from numpy import array
@@ -29,7 +30,7 @@ def run(num, wid, ims):
         ims.append((ph, d))
 
 
-def mainrun(num, workers, batch_size):
+def generate(num, workers, batch_size):
     each = num // workers
     ims = [[] for i in range(workers)]
     tasks = []
@@ -58,4 +59,4 @@ def mainrun(num, workers, batch_size):
 
 
 if __name__ == "__main__":
-    mainrun(2 ** 21, 32, 1024)
+    generate(*argv)
