@@ -23,6 +23,7 @@ LOG_DIR = "logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 H, W, C = 35, 90, 3  # height, width, 3 (RGB channels)
 N_LABELS = 128
 D = 4  # num_of_chars_per_image
+EPOCHS = 4
 
 
 # create a pandas data frame of images and labels
@@ -82,13 +83,11 @@ model.compile(
 model.summary()
 
 
-epochs = 4
-
 history = model.fit(
-    get_data_generator(files, train_idx, epochs),
+    get_data_generator(files, train_idx, EPOCHS),
     steps_per_epoch=len(train_idx),
-    epochs=epochs,
-    validation_data=get_data_generator(files, valid_idx, epochs),
+    epochs=EPOCHS,
+    validation_data=get_data_generator(files, valid_idx, EPOCHS),
     validation_steps=len(valid_idx),
     callbacks=[
         tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, histogram_freq=1)
