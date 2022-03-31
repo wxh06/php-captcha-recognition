@@ -30,12 +30,12 @@ files = glob(path.join(DATA_DIR, "data-*.pkl"))
 
 
 p = np.random.permutation(len(files))
-train_up_to = int(len(files) * 0.9)
+train_up_to = int(len(files) * 0.9375)
 train_idx = p[:train_up_to]
 test_idx = p[train_up_to:]
 
 # split train_idx further into training and validation set
-train_up_to = int(train_up_to * 0.9)
+train_up_to = int(train_up_to * 0.9375)
 train_idx, valid_idx = train_idx[:train_up_to], train_idx[train_up_to:]
 
 print(
