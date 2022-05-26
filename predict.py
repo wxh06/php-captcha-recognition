@@ -23,7 +23,7 @@ def predict(image):
     # im = im.resize((H, W))
     ima = np.array(im) / 255.0
 
-    prediction = model.predict(np.array([ima]))
+    prediction = model.predict(np.array([ima]), verbose=0)
     prediction = tf.math.argmax(prediction, axis=-1)
 
     return "".join(map(chr, map(int, prediction[0])))
