@@ -4,19 +4,14 @@ Copyright (c) 2017 Jackon Yang
 https://github.com/JackonYang/captcha-tensorflow/blob/master/captcha-solver-tf2-4digits-AlexNet-98.8.ipynb
 """
 
-from glob import glob
-from os import path
 from datetime import datetime
+from os import listdir, path
 
-import matplotlib.pyplot as plt
-import numpy as np  # linear algebra
-import pandas as pd  # data processing, CSV file I/O (e.g. pd.read_csv)
+import numpy as np
+import pandas as pd
 import tensorflow as tf
 from keras import layers, models
 from keras.utils.np_utils import to_categorical
-
-# from PIL import Image
-
 
 DATA_DIR = "data"
 LOG_DIR = "logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -27,7 +22,7 @@ EPOCHS = 4
 
 
 # create a pandas data frame of images and labels
-files = glob(path.join(DATA_DIR, "data-*.pkl"))
+files = listdir(DATA_DIR)
 
 
 p = np.random.permutation(len(files))
@@ -48,18 +43,14 @@ print(
 def get_data_generator(files, indices, repeat=1):
     for _ in range(repeat):
         for i in indices:
-            df = pd.read_pickle(files[i])
+            df = pd.read_pickle(path.join(DATA_DIR, files[i]))
             images = np.array([a for a in df["image"]]) / 255.0
             labels = np.array(
                 [
-                    [
-                        np.array(to_categorical(ord(i), N_LABELS))
-                        for i in lable.lower()
-                    ]
-                    for lable in df["label"]
+                    [np.array(to_categorical(ord(i), N_LABELS)) for i in label.lower()]
+                    for label in df["phrase"]
                 ]
             )
-            # print(images.shape, labels.shape)
             yield images, labels
 
 
@@ -73,16 +64,13 @@ x = layers.MaxPooling2D((2, 2))(x)
 
 x = layers.Flatten()(x)
 x = layers.Dense(1024, activation="relu")(x)
-# x = layers.Dropout(0.5)(x)
 
 x = layers.Dense(D * N_LABELS, activation="softmax")(x)
 x = layers.Reshape((D, N_LABELS))(x)
 
 model = models.Model(inputs=input_layer, outputs=x)
 
-model.compile(
-    optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
-)
+model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 model.summary()
 
 
@@ -92,28 +80,8 @@ history = model.fit(
     epochs=EPOCHS,
     validation_data=get_data_generator(files, valid_idx, EPOCHS),
     validation_steps=len(valid_idx),
-    callbacks=[
-        tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, histogram_freq=1)
-    ],
+    callbacks=[tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, histogram_freq=1)],
 )
-
-
-def plot_train_history(history):
-    fig, axes = plt.subplots(1, 2, figsize=(20, 5))
-
-    axes[0].plot(history.history["accuracy"], label="Train accuracy")
-    axes[0].plot(history.history["val_accuracy"], label="Val accuracy")
-    axes[0].set_xlabel("Epochs")
-    axes[0].legend()
-
-    axes[1].plot(history.history["loss"], label="Training loss")
-    axes[1].plot(history.history["val_loss"], label="Validation loss")
-    axes[1].set_xlabel("Epochs")
-    axes[1].legend()
-
-
-plot_train_history(history)
-plt.show()
 
 
 # evaluate loss and accuracy in test dataset
