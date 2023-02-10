@@ -1,11 +1,8 @@
 from datetime import datetime
-from os import listdir, path
+from glob import glob
 
-import numpy as np
-import pandas as pd
 import tensorflow as tf
 from keras import layers, models
-from keras.utils.np_utils import to_categorical
 
 DATA_DIR = "data"
 LOG_DIR = "logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -13,32 +10,47 @@ H, W, C = 35, 90, 3  # height, width, 3 (RGB channels)
 N_LABELS = 128
 D = 4  # num_of_chars_per_image
 EPOCHS = 16
+PARALLELS = 8
+BATCH_SIZE = 1024
+VALIDATION = 8
+EVALUATION = 4
 
 
 # create a pandas data frame of images and labels
-files = listdir(DATA_DIR)
+files = glob(f"{DATA_DIR}/*.tfrecords")
 
-np.random.shuffle(files)
-split = int(len(files) / 32)
-files_train = files[: -split * 2]
-files_validation = files[-split * 2 : -split]
-files_test = files[-split:]
+raw_captcha_dataset = tf.data.TFRecordDataset(files)
+
+captcha_feature_description = {
+    "phrase": tf.io.FixedLenFeature([], tf.string),
+    "image": tf.io.FixedLenFeature([], tf.string),
+}
 
 
-def get_data_generator(files, repeat=False):
-    while True:
-        for file in files:
-            df = pd.read_pickle(path.join(DATA_DIR, file))
-            images = np.array([a for a in df["image"]]) / 255.0
-            labels = np.array(
-                [
-                    [np.array(to_categorical(ord(i), N_LABELS)) for i in label]
-                    for label in df["phrase"]
-                ]
-            )
-            yield images, labels
-        if not repeat:
-            return
+def _parse_image_function(example_proto):
+    # Parse the input tf.Example proto using the dictionary above.
+    features = tf.io.parse_single_example(
+        example_proto, captcha_feature_description
+    )
+    return (
+        tf.cast(tf.io.parse_tensor(features["image"], tf.uint8), tf.float32)
+        / 255.0,
+        tf.one_hot(
+            tf.strings.unicode_decode(features["phrase"], "ascii"),
+            N_LABELS,
+        ),
+    )
+
+
+parsed_captcha_dataset = raw_captcha_dataset.map(
+    _parse_image_function,
+    num_parallel_calls=PARALLELS,
+    deterministic=False,
+).batch(BATCH_SIZE).prefetch(1)
+
+dataset_evaluation = parsed_captcha_dataset.take(EVALUATION)
+dataset_validation = parsed_captcha_dataset.skip(EVALUATION).take(VALIDATION)
+dataset_train = parsed_captcha_dataset.skip((EVALUATION + VALIDATION))
 
 
 input_layer = tf.keras.Input(shape=(H, W, C))
@@ -69,11 +81,10 @@ class EpochSaver(tf.keras.callbacks.Callback):
 
 
 history = model.fit(
-    get_data_generator(files_train, True),
-    steps_per_epoch=len(files_train),
+    dataset_train,
     epochs=EPOCHS,
-    validation_data=get_data_generator(files_validation, True),
-    validation_steps=len(files_validation),
+    validation_data=dataset_validation,
+    validation_steps=VALIDATION,
     callbacks=[
         tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, histogram_freq=1),
         EpochSaver(),
@@ -86,7 +97,7 @@ print(
         zip(
             model.metrics_names,
             model.evaluate(
-                get_data_generator(files_test), steps=len(files_test)
+                dataset_evaluation, steps=EVALUATION
             ),
         )
     )
