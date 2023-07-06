@@ -10,13 +10,11 @@ H, W, C = 35, 90, 3  # height, width, 3 (RGB channels)
 N_LABELS = 128
 D = 4  # num_of_chars_per_image
 EPOCHS = 16
-PARALLELS = 8
+PARALLELS = tf.data.AUTOTUNE
 BATCH_SIZE = 1024
 VALIDATION = 8
-EVALUATION = 4
 
 
-# create a pandas data frame of images and labels
 files = glob(f"{DATA_DIR}/*.tfrecords")
 
 raw_captcha_dataset = tf.data.TFRecordDataset(files)
@@ -28,13 +26,9 @@ captcha_feature_description = {
 
 
 def _parse_image_function(example_proto):
-    # Parse the input tf.Example proto using the dictionary above.
-    features = tf.io.parse_single_example(
-        example_proto, captcha_feature_description
-    )
+    features = tf.io.parse_single_example(example_proto, captcha_feature_description)
     return (
-        tf.cast(tf.io.parse_tensor(features["image"], tf.uint8), tf.float32)
-        / 255.0,
+        tf.cast(tf.io.parse_tensor(features["image"], tf.uint8), tf.float32) / 255.0,
         tf.one_hot(
             tf.strings.unicode_decode(features["phrase"], "ascii"),
             N_LABELS,
@@ -42,15 +36,18 @@ def _parse_image_function(example_proto):
     )
 
 
-parsed_captcha_dataset = raw_captcha_dataset.map(
-    _parse_image_function,
-    num_parallel_calls=PARALLELS,
-    deterministic=False,
-).batch(BATCH_SIZE).prefetch(1)
+parsed_captcha_dataset = (
+    raw_captcha_dataset.map(
+        _parse_image_function,
+        num_parallel_calls=PARALLELS,
+        deterministic=False,
+    )
+    .batch(BATCH_SIZE)
+    .prefetch(1)
+)
 
-dataset_evaluation = parsed_captcha_dataset.take(EVALUATION)
-dataset_validation = parsed_captcha_dataset.skip(EVALUATION).take(VALIDATION)
-dataset_train = parsed_captcha_dataset.skip((EVALUATION + VALIDATION))
+dataset_validation = parsed_captcha_dataset.take(VALIDATION)
+dataset_train = parsed_captcha_dataset.skip(VALIDATION)
 
 
 input_layer = tf.keras.Input(shape=(H, W, C))
@@ -69,15 +66,13 @@ x = layers.Reshape((D, N_LABELS))(x)
 
 model = models.Model(inputs=input_layer, outputs=x)
 
-model.compile(
-    optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
-)
+model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 model.summary()
 
 
 class EpochSaver(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs):
-        self.model.save("saved_model/model_{}".format(epoch))
+        self.model.save(f"saved_models/{epoch}")
 
 
 history = model.fit(
@@ -91,17 +86,4 @@ history = model.fit(
     ],
 )
 
-# evaluate loss and accuracy in test dataset
-print(
-    dict(
-        zip(
-            model.metrics_names,
-            model.evaluate(
-                dataset_evaluation, steps=EVALUATION
-            ),
-        )
-    )
-)
-
-
-model.save("saved_model/luogu_captcha")
+model.save("saved_model")

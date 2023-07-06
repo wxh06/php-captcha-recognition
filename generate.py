@@ -1,5 +1,5 @@
-from concurrent.futures import ThreadPoolExecutor, wait, as_completed
-from os import path
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
+from os import makedirs, path
 from subprocess import PIPE, Popen
 from uuid import uuid4
 
@@ -59,9 +59,7 @@ def image_example(image_string: bytes, phrase: str):
 
 def main():
     uuid = uuid4()
-    with tf.io.TFRecordWriter(
-        path.join(DATA_DIR, f"{uuid}.tfrecords")
-    ) as writer:
+    with tf.io.TFRecordWriter(path.join(DATA_DIR, f"{uuid}.tfrecords")) as writer:
         for phrase, image in generate():
             tf_example = image_example(image, phrase)
             writer.write(tf_example.SerializeToString())
@@ -69,6 +67,7 @@ def main():
 
 
 if __name__ == "__main__":
+    makedirs("data", exist_ok=True)
     with ThreadPoolExecutor() as executor:
         futures = [executor.submit(main) for i in range(executor._max_workers)]
         try:
