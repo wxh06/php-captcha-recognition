@@ -1,9 +1,7 @@
 from os import path
 
-import numpy as np  # linear algebra
 import tensorflow as tf
 from keras.models import load_model
-from PIL import Image
 
 MODEL_PATH = "saved_model"
 
@@ -12,17 +10,12 @@ model = load_model(path.join(path.dirname(__file__), MODEL_PATH))
 
 
 def predict(image):
-    im = Image.open(image)
-    ima = np.array(im) / 255.0
-
-    prediction = model(np.array([ima]))
-    prediction = tf.math.argmax(prediction, axis=-1)
-
-    return "".join(map(chr, map(int, prediction[0])))
+    prediction = model(
+        tf.expand_dims(tf.cast(tf.image.decode_jpeg(image), tf.float32) / 255, axis=0)
+    )
+    return "".join(map(chr, map(int, tf.math.argmax(prediction, axis=-1)[0])))
 
 
 if __name__ == "__main__":
-    # Check its architecture
     model.summary()
-
-    print(predict("./captcha.jpeg"))
+    print(predict(open("./captcha.jpeg", "rb").read()))
