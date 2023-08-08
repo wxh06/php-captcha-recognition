@@ -7,7 +7,7 @@ from keras import layers, models
 DATA_DIR = "data"
 LOG_DIR = "logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 H, W, C = 35, 90, 3  # height, width, 3 (RGB channels)
-N_LABELS = 128
+LABELS = list("abcdefghijklmnpqrstuvwxyz123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 D = 4  # num_of_chars_per_image
 EPOCHS = 16
 PARALLELS = tf.data.AUTOTUNE
@@ -24,14 +24,18 @@ captcha_feature_description = {
     "image": tf.io.FixedLenFeature([], tf.string),
 }
 
+table = tf.lookup.StaticHashTable(
+    tf.lookup.KeyValueTensorInitializer(LABELS, tf.range(len(LABELS))), -1
+)
+
 
 def _parse_image_function(example_proto):
     features = tf.io.parse_single_example(example_proto, captcha_feature_description)
     return (
         tf.cast(tf.io.parse_tensor(features["image"], tf.uint8), tf.float32) / 255.0,
         tf.one_hot(
-            tf.strings.unicode_decode(features["phrase"], "ascii"),
-            N_LABELS,
+            table[tf.strings.bytes_split(features["phrase"])],
+            len(LABELS),
         ),
     )
 
@@ -61,8 +65,8 @@ x = layers.MaxPooling2D((2, 2))(x)
 x = layers.Flatten()(x)
 x = layers.Dense(1024, activation="relu")(x)
 
-x = layers.Dense(D * N_LABELS, activation="softmax")(x)
-x = layers.Reshape((D, N_LABELS))(x)
+x = layers.Dense(D * len(LABELS), activation="softmax")(x)
+x = layers.Reshape((D, len(LABELS)))(x)
 
 model = models.Model(inputs=input_layer, outputs=x)
 
