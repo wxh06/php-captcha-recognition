@@ -2,7 +2,6 @@ from datetime import datetime
 from glob import glob
 
 import tensorflow as tf
-from keras import layers, models
 
 DATA_DIR = "data"
 LOG_DIR = "logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -54,21 +53,21 @@ dataset_validation = parsed_captcha_dataset.take(VALIDATION)
 dataset_train = parsed_captcha_dataset.skip(VALIDATION)
 
 
-input_layer = tf.keras.Input(shape=(H, W, C))
-x = layers.Conv2D(32, 3, activation="relu")(input_layer)
-x = layers.MaxPooling2D((2, 2))(x)
-x = layers.Conv2D(64, 3, activation="relu")(x)
-x = layers.MaxPooling2D((2, 2))(x)
-x = layers.Conv2D(64, 3, activation="relu")(x)
-x = layers.MaxPooling2D((2, 2))(x)
-
-x = layers.Flatten()(x)
-x = layers.Dense(1024, activation="relu")(x)
-
-x = layers.Dense(D * len(LABELS), activation="softmax")(x)
-x = layers.Reshape((D, len(LABELS)))(x)
-
-model = models.Model(inputs=input_layer, outputs=x)
+model = tf.keras.Sequential(
+    [
+        tf.keras.Input(shape=(H, W, C)),
+        tf.keras.layers.Conv2D(32, 3, activation="relu"),
+        tf.keras.layers.MaxPooling2D((2, 2)),
+        tf.keras.layers.Conv2D(64, 3, activation="relu"),
+        tf.keras.layers.MaxPooling2D((2, 2)),
+        tf.keras.layers.Conv2D(64, 3, activation="relu"),
+        tf.keras.layers.MaxPooling2D((2, 2)),
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dense(1024, activation="relu"),
+        tf.keras.layers.Dense(D * len(LABELS), activation="softmax"),
+        tf.keras.layers.Reshape((D, len(LABELS))),
+    ]
+)
 
 model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 model.summary()
