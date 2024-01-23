@@ -1,11 +1,11 @@
 import sys
-from os import path
+from pathlib import Path
 from subprocess import PIPE, Popen
 
 import tensorflow as tf
 
 PHP_BINARY = "php"
-DATA_DIR = "data"
+DATA_DIR = Path("./data/")
 CHUNK_SIZE = 65536
 
 
@@ -37,24 +37,31 @@ def _bytes_feature(value):
 
 
 # https://www.tensorflow.org/tutorials/load_data/tfrecord#write_the_tfrecord_file
-def image_example(image_string: bytes, phrase: str):
+def captcha_example(image_string: bytes, phrase: str):
     image = tf.image.decode_jpeg(image_string)
     feature = {
+        "phrase": _bytes_feature(phrase.encode("ascii")),
         "image": _bytes_feature(tf.io.serialize_tensor(image)),
-        "label": _bytes_feature(phrase.encode("ascii")),
     }
     return tf.train.Example(features=tf.train.Features(feature=feature))
 
 
 def write(name: str):
-    with tf.io.TFRecordWriter(path.join(DATA_DIR, f"{name}.tfrecords")) as writer:
+    with tf.io.TFRecordWriter(str(DATA_DIR / f"{name}.tfrecords")) as writer:
         for phrase, image in generate():
-            tf_example = image_example(image, phrase)
+            tf_example = captcha_example(image, phrase)
             writer.write(tf_example.SerializeToString())
 
 
 if __name__ == "__main__":
     try:
-        write(sys.argv[1])
+        uuid = sys.argv[1]
+    except IndexError:
+        from uuid import uuid4
+
+        uuid = uuid4()
+
+    try:
+        write(uuid)
     except KeyboardInterrupt:
         pass
