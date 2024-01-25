@@ -77,7 +77,7 @@ validation_dataset = (
 
 
 # Get the model
-model = build_model(img_width, img_height, 3, char_to_num, num_to_char)
+model = build_model(img_width, img_height, 3, num_to_char)
 model.summary()
 
 

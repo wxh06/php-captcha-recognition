@@ -29,7 +29,14 @@ def ctc_batch_cost(
     input_length = tf.cast(tf.squeeze(input_length, axis=-1), tf.int32)
     sparse_labels = tf.cast(ctc_label_dense_to_sparse(y_true, label_length), tf.int32)
 
-    results = keras.backend.ctc_decode(y_pred, input_length=input_length)[0][0][:, :4]
+    results = keras.backend.ctc_decode(y_pred, input_length=input_length)[0][0][
+        :, : tf.shape(y_true)[1]
+    ]
+    results = tf.map_fn(
+        tf.strings.reduce_join,
+        tf.map_fn(num_to_char, results, dtype="string"),
+    )
+    labels = tf.map_fn(tf.strings.reduce_join, num_to_char(y_true))
 
     y_pred = tf.math.log(tf.transpose(y_pred, perm=[1, 0, 2]) + keras.backend.epsilon())
 
@@ -40,12 +47,13 @@ def ctc_batch_cost(
             ),
             1,
         ),
-        tf.cast(tf.equal(
-            tf.map_fn(
-                tf.strings.reduce_join, tf.map_fn(num_to_char, results, dtype="string")
+        tf.cast(
+            tf.equal(
+                tf.map_fn(tf.strings.upper, results),
+                tf.map_fn(tf.strings.upper, labels),
             ),
-            tf.map_fn(tf.strings.reduce_join, num_to_char(y_true)),
-        ), tf.int32),
+            tf.int32,
+        ),
     )
 
 
@@ -118,7 +126,6 @@ def build_model(
     img_width: int,
     img_height: int,
     channels: int,
-    char_to_num: layers.StringLookup,
     num_to_char: layers.StringLookup,
 ):
     # Inputs to the model
@@ -164,7 +171,7 @@ def build_model(
 
     # Output layer
     x = layers.Dense(
-        len(char_to_num.get_vocabulary()) + 1, activation="softmax", name="dense2"
+        len(num_to_char.get_vocabulary()) + 1, activation="softmax", name="dense2"
     )(x)
 
     # Add CTC layer for calculating CTC loss at each step
