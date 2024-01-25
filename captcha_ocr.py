@@ -22,18 +22,30 @@ from keras import layers
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
 
-def ctc_batch_cost(y_true, y_pred, input_length, label_length):
+def ctc_batch_cost(
+    y_true, y_pred, input_length, label_length, num_to_char: layers.StringLookup
+):
     label_length = tf.cast(tf.squeeze(label_length, axis=-1), tf.int32)
     input_length = tf.cast(tf.squeeze(input_length, axis=-1), tf.int32)
     sparse_labels = tf.cast(ctc_label_dense_to_sparse(y_true, label_length), tf.int32)
 
+    results = keras.backend.ctc_decode(y_pred, input_length=input_length)[0][0][:, :4]
+
     y_pred = tf.math.log(tf.transpose(y_pred, perm=[1, 0, 2]) + keras.backend.epsilon())
 
-    return tf.expand_dims(
-        tf.compat.v1.nn.ctc_loss(
-            inputs=y_pred, labels=sparse_labels, sequence_length=input_length
+    return (
+        tf.expand_dims(
+            tf.compat.v1.nn.ctc_loss(
+                inputs=y_pred, labels=sparse_labels, sequence_length=input_length
+            ),
+            1,
         ),
-        1,
+        tf.cast(tf.equal(
+            tf.map_fn(
+                tf.strings.reduce_join, tf.map_fn(num_to_char, results, dtype="string")
+            ),
+            tf.map_fn(tf.strings.reduce_join, num_to_char(y_true)),
+        ), tf.int32),
     )
 
 
@@ -77,9 +89,10 @@ def ctc_label_dense_to_sparse(labels, label_lengths):
 
 
 class CTCLayer(layers.Layer):
-    def __init__(self, name=None):
+    def __init__(self, name, num_to_char: layers.StringLookup):
         super().__init__(name=name)
         self.loss_fn = ctc_batch_cost
+        self.num_to_char = num_to_char
 
     def call(self, y_true, y_pred):
         # Compute the training-time loss value and add it
@@ -91,15 +104,22 @@ class CTCLayer(layers.Layer):
         input_length = input_length * tf.ones(shape=(batch_len, 1), dtype="int64")
         label_length = label_length * tf.ones(shape=(batch_len, 1), dtype="int64")
 
-        loss = self.loss_fn(y_true, y_pred, input_length, label_length)
+        loss, acc = self.loss_fn(
+            y_true, y_pred, input_length, label_length, self.num_to_char
+        )
         self.add_loss(loss)
+        self.add_metric(acc, "acc")
 
         # At test time, just return the computed predictions
         return y_pred
 
 
 def build_model(
-    img_width: int, img_height: int, channels: int, char_to_num: layers.StringLookup
+    img_width: int,
+    img_height: int,
+    channels: int,
+    char_to_num: layers.StringLookup,
+    num_to_char: layers.StringLookup,
 ):
     # Inputs to the model
     input_img = layers.Input(
@@ -148,7 +168,7 @@ def build_model(
     )(x)
 
     # Add CTC layer for calculating CTC loss at each step
-    output = CTCLayer(name="ctc_loss")(labels, x)
+    output = CTCLayer("ctc_loss", num_to_char)(labels, x)
 
     # Define the model
     model = keras.models.Model(
