@@ -11,9 +11,7 @@ data_dir = Path("./data/")
 
 # Get list of all the images
 files = list(data_dir.glob("*.tfrecords"))
-characters = sorted(
-    set("abcdefghijklmnpqrstuvwxyz123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".upper())
-)
+characters = sorted("abcdefghijklmnpqrstuvwxyz123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 print("Number of TFRecord files found: ", len(files))
 print("Number of unique characters: ", len(characters))
@@ -25,6 +23,8 @@ batch_size = 16
 # Desired image dimensions
 img_width = 90
 img_height = 35
+
+validation_size = 256
 
 
 # Mapping characters to integers
@@ -61,14 +61,14 @@ def encode_single_sample(example_proto):
 
 dataset = tf.data.TFRecordDataset(files)
 
-train_dataset = dataset.skip(256)
+train_dataset = dataset.skip(validation_size)
 train_dataset = (
     train_dataset.map(encode_single_sample, num_parallel_calls=tf.data.AUTOTUNE)
     .batch(batch_size)
     .prefetch(buffer_size=tf.data.AUTOTUNE)
 )
 
-validation_dataset = dataset.take(256)
+validation_dataset = dataset.take(validation_size)
 validation_dataset = (
     validation_dataset.map(encode_single_sample, num_parallel_calls=tf.data.AUTOTUNE)
     .batch(batch_size)
@@ -82,8 +82,8 @@ model.summary()
 
 
 # TODO restore epoch count.
-epochs = 100
-early_stopping_patience = 10
+epochs = 10
+early_stopping_patience = 3
 # Add early stopping
 early_stopping = keras.callbacks.EarlyStopping(
     monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True

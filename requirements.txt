@@ -1,2 +1,2 @@
 tensorflow<3,>=2
-black[jupyter]
+keras>=3
