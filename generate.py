@@ -4,13 +4,18 @@ from subprocess import PIPE, Popen
 
 import tensorflow as tf
 
+from config import HEIGHT, LENGTH, WIDTH
+
 PHP_BINARY = "php"
 DATA_DIR = Path("./data/")
 CHUNK_SIZE = 65536
 
 
 def generate():
-    process = Popen([PHP_BINARY, "generate.php"], stdout=PIPE)
+    process = Popen(
+        [PHP_BINARY, "generate.php", str(LENGTH), str(WIDTH), str(HEIGHT)],
+        stdout=PIPE,
+    )
     output = b""
     while True:
         output += process.stdout.read(CHUNK_SIZE)
@@ -37,11 +42,10 @@ def _bytes_feature(value):
 
 
 # https://www.tensorflow.org/tutorials/load_data/tfrecord#write_the_tfrecord_file
-def captcha_example(image_string: bytes, phrase: str):
-    image = tf.image.decode_jpeg(image_string)
+def captcha_example(image_raw: bytes, phrase: str):
     feature = {
         "phrase": _bytes_feature(phrase.encode("ascii")),
-        "image": _bytes_feature(tf.io.serialize_tensor(image)),
+        "image": _bytes_feature(image_raw),
     }
     return tf.train.Example(features=tf.train.Features(feature=feature))
 
@@ -59,7 +63,7 @@ if __name__ == "__main__":
     except IndexError:
         from uuid import uuid4
 
-        uuid = uuid4()
+        uuid = str(uuid4())
 
     try:
         write(uuid)

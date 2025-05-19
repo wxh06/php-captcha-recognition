@@ -1,83 +1,84 @@
 from pathlib import Path
 
-import keras
 import tensorflow as tf
-from keras import layers
 
-from captcha_ocr import build_model
+from config import BATCH_SIZE, HEIGHT, LENGTH, WIDTH
+from model import build_model
+
+# Label
+NUM_CHARS = LENGTH
+CHARSET = list("abcdefghijklmnpqrstuvwxyz123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+# Image
+SIZE = (WIDTH, HEIGHT)
+CHANNELS = 3
+SHAPE = (*SIZE, CHANNELS)
 
 # Path to the data directory
 data_dir = Path("./data/")
 
 # Get list of all the images
-files = list(data_dir.glob("*.tfrecords"))
-characters = sorted("abcdefghijklmnpqrstuvwxyz123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+files = list(map(str, data_dir.glob("*.tfrecords")))
 
 print("Number of TFRecord files found: ", len(files))
-print("Number of unique characters: ", len(characters))
-print("Characters present: ", characters)
-
-# Batch size for training and validation
-batch_size = 16
-
-# Desired image dimensions
-img_width = 90
-img_height = 35
+print("Number of unique characters: ", len(CHARSET))
+print("Characters present: ", CHARSET)
 
 validation_size = 256
 
 
 # Mapping characters to integers
-char_to_num = layers.StringLookup(vocabulary=characters, mask_token=None)
-
-# Mapping integers back to original characters
-num_to_char = layers.StringLookup(
-    vocabulary=char_to_num.get_vocabulary(), mask_token=None, invert=True
+string_lookup = tf.keras.layers.StringLookup(
+    vocabulary=CHARSET, mask_token=None, num_oov_indices=0
 )
 
-captcha_feature_description = {
+feature_description = {
     "phrase": tf.io.FixedLenFeature([], tf.string),
     "image": tf.io.FixedLenFeature([], tf.string),
 }
 
 
-def encode_single_sample(example_proto):
-    # 1. Read image
-    features = tf.io.parse_single_example(example_proto, captcha_feature_description)
-    # 2. Decode
-    img = tf.io.parse_tensor(features["image"], tf.uint8)
-    # 3. Convert to float32 in [0, 1] range
+def parse_tfrecord(example_proto):
+    parsed = tf.io.parse_single_example(example_proto, feature_description)
+
+    img = tf.io.decode_jpeg(parsed["image"], channels=3)
+    img = tf.image.resize(img, SIZE)
     img = tf.image.convert_image_dtype(img, tf.float32)
-    # 4. Resize to the desired size
-    # img = tf.image.resize(img, [img_height, img_width])
-    # 5. Transpose the image because we want the time
-    # dimension to correspond to the width of the image.
-    img = tf.transpose(img, perm=[1, 0, 2])
-    # 6. Map the characters in label to numbers
-    label = char_to_num(tf.strings.upper(tf.strings.bytes_split(features["phrase"])))
-    # 7. Return a dict as our model is expecting two inputs
-    return {"image": img, "label": label}
+
+    label_str = parsed["phrase"]
+    labels = tf.strings.unicode_split(label_str, "UTF-8")
+    labels = string_lookup(labels)
+    labels = tf.ensure_shape(labels, [NUM_CHARS])
+
+    return img, {f"char_{i}": labels[i] for i in range(NUM_CHARS)}
 
 
 dataset = tf.data.TFRecordDataset(files)
 
 train_dataset = dataset.skip(validation_size)
 train_dataset = (
-    train_dataset.map(encode_single_sample, num_parallel_calls=tf.data.AUTOTUNE)
-    .batch(batch_size)
+    train_dataset.map(parse_tfrecord, num_parallel_calls=tf.data.AUTOTUNE)
+    .batch(BATCH_SIZE)
     .prefetch(buffer_size=tf.data.AUTOTUNE)
 )
 
 validation_dataset = dataset.take(validation_size)
 validation_dataset = (
-    validation_dataset.map(encode_single_sample, num_parallel_calls=tf.data.AUTOTUNE)
-    .batch(batch_size)
+    validation_dataset.map(parse_tfrecord, num_parallel_calls=tf.data.AUTOTUNE)
+    .batch(BATCH_SIZE)
     .prefetch(buffer_size=tf.data.AUTOTUNE)
 )
 
 
-# Get the model
-model = build_model(img_width, img_height, 3, num_to_char)
+# 使用示例
+model = build_model(SHAPE, NUM_CHARS, len(CHARSET))
+
+# 编译配置（只需针对数字输出进行优化）
+model.compile(
+    optimizer="adam",
+    loss={f"char_{i}": "sparse_categorical_crossentropy" for i in range(NUM_CHARS)},
+    metrics={f"char_{i}": "accuracy" for i in range(NUM_CHARS)},
+)
 model.summary()
 
 
@@ -85,7 +86,7 @@ model.summary()
 epochs = 10
 early_stopping_patience = 3
 # Add early stopping
-early_stopping = keras.callbacks.EarlyStopping(
+early_stopping = tf.keras.callbacks.EarlyStopping(
     monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True
 )
 
