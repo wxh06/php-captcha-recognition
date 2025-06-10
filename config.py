@@ -3,4 +3,5 @@ HEIGHT = 35
 LENGTH = 4
 
 # Training parameters
-BATCH_SIZE = 32
+BATCH_SIZE = 256
+EPOCHS = 100

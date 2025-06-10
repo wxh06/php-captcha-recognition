@@ -51,7 +51,9 @@ def captcha_example(image_raw: bytes, phrase: str):
 
 
 def write(name: str):
-    with tf.io.TFRecordWriter(str(DATA_DIR / f"{name}.tfrecords")) as writer:
+    with tf.io.TFRecordWriter(
+        str(DATA_DIR / f"{LENGTH}-{WIDTH}x{HEIGHT}-{name}.tfrecords")
+    ) as writer:
         for phrase, image in generate():
             tf_example = captcha_example(image, phrase)
             writer.write(tf_example.SerializeToString())
