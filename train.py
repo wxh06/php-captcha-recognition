@@ -5,10 +5,10 @@ import tensorflow as tf
 
 from config import BATCH_SIZE, EPOCHS, HEIGHT, LENGTH, WIDTH
 from model import build_model
+from utils import normalize_label, string_lookup, vocabulary
 
 # Label
 NUM_CHARS = LENGTH
-CHARSET = list("abcdefghijklmnpqrstuvwxyz123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 # Image
 SIZE = (HEIGHT, WIDTH)
@@ -25,16 +25,11 @@ checkpoint_path = f"checkpoints/{time}/" + "cp-{epoch:04d}.weights.h5"
 log_dir = f"logs/fit/{time}"
 
 print("Number of TFRecord files found: ", len(files))
-print("Number of unique characters: ", len(CHARSET))
-print("Characters present: ", CHARSET)
+print("Number of unique characters: ", len(vocabulary))
+print("Characters present: ", vocabulary)
 
 validation_size = 65536
 
-
-# Mapping characters to integers
-string_lookup = tf.keras.layers.StringLookup(
-    vocabulary=CHARSET, mask_token=None, num_oov_indices=0
-)
 
 feature_description = {
     "phrase": tf.io.FixedLenFeature([], tf.string),
@@ -48,7 +43,7 @@ def parse_tfrecord(example_proto):
     img = tf.io.decode_jpeg(parsed["image"], channels=3)
     img = tf.image.resize(img, SIZE)
 
-    label_str = parsed["phrase"]
+    label_str = normalize_label(parsed["phrase"])
     labels = tf.strings.unicode_split(label_str, "UTF-8")
     labels = string_lookup(labels)
     labels = tf.ensure_shape(labels, [NUM_CHARS])
@@ -69,7 +64,7 @@ train_dataset = train_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 validation_dataset = dataset.take(validation_size)
 validation_dataset = validation_dataset.batch(1024).prefetch(tf.data.AUTOTUNE)
 
-model = build_model(SHAPE, NUM_CHARS, len(CHARSET))
+model = build_model(SHAPE, NUM_CHARS, len(vocabulary))
 
 
 def exact_match_accuracy(y_true, y_pred):
@@ -96,7 +91,10 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
     filepath=checkpoint_path, save_weights_only=True, verbose=1
 )
 early_stopping = tf.keras.callbacks.EarlyStopping(
-    monitor="val_loss", patience=10, restore_best_weights=True
+    monitor="val_phrase_exact_match_accuracy",
+    patience=5,
+    mode="max",
+    restore_best_weights=True,
 )
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
     monitor="val_loss", factor=0.5, patience=3
@@ -111,4 +109,4 @@ history = model.fit(
     callbacks=[cp_callback, early_stopping, reduce_lr, tensorboard_callback],
 )
 
-model.save(f"models/{LENGTH}-{WIDTH}x{HEIGHT}-{time}.keras")
+model.export(f"models/{LENGTH}-{WIDTH}x{HEIGHT}-{time}")

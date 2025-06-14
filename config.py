@@ -1,6 +1,7 @@
 WIDTH = 90
 HEIGHT = 35
 LENGTH = 4
+CASE_SENSITIVE = False
 
 # Training parameters
 BATCH_SIZE = 256
