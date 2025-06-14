@@ -4,5 +4,5 @@ LENGTH = 4
 CASE_SENSITIVE = False
 
 # Training parameters
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 EPOCHS = 100
